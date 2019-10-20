@@ -175,7 +175,7 @@ LegalizerHelper::legalizeInstrStep(MachineInstr &MI) {
     return widenScalar(MI, Step.TypeIdx, Step.NewType);
   case Lower:
     LLVM_DEBUG(dbgs() << ".. Lower\n");
-    return lower(MI, Step.TypeIdx, Step.NewType);
+    return lower(MI, Step.TypeIdx);
   case FewerElements:
     LLVM_DEBUG(dbgs() << ".. Reduce number of elements\n");
     return fewerElementsVector(MI, Step.TypeIdx, Step.NewType);
@@ -421,6 +421,24 @@ void LegalizerHelper::buildWidenedRemergeToDst(Register DstReg, LLT LCMTy,
 
 static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
   switch (Opcode) {
+  case TargetOpcode::G_ADD:
+    switch (Size) {
+    case 32:
+      return RTLIB::ADD_I32;
+    case 64:
+      return RTLIB::ADD_I64;
+    default:
+      llvm_unreachable("Unsupported size");
+    }
+  case TargetOpcode::G_SUB:
+    switch (Size) {
+    case 32:
+      return RTLIB::SUB_I32;
+    case 64:
+      return RTLIB::SUB_I64;
+    default:
+      llvm_unreachable("Unsupported size");
+    }
   case TargetOpcode::G_AND:
     switch (Size) {
     case 8:
@@ -472,8 +490,82 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
     default:
       llvm_unreachable("Unsupported size");
     }
+  case TargetOpcode::G_SHL:
+    switch (Size) {
+    case 8:
+      return RTLIB::SHL_I8;
+    case 16:
+      return RTLIB::SHL_I16;
+    case 24:
+      return RTLIB::SHL_I24;
+    case 32:
+      return RTLIB::SHL_I32;
+    case 64:
+      return RTLIB::SHL_I64;
+    case 128:
+      return RTLIB::SHL_I128;
+    default:
+      llvm_unreachable("Unsupported size");
+    }
+  case TargetOpcode::G_LSHR:
+    switch (Size) {
+    case 8:
+      return RTLIB::SRL_I8;
+    case 16:
+      return RTLIB::SRL_I16;
+    case 24:
+      return RTLIB::SRL_I24;
+    case 32:
+      return RTLIB::SRL_I32;
+    case 64:
+      return RTLIB::SRL_I64;
+    case 128:
+      return RTLIB::SRL_I128;
+    default:
+      llvm_unreachable("Unsupported size");
+    }
+  case TargetOpcode::G_ASHR:
+    switch (Size) {
+    case 8:
+      return RTLIB::SRA_I8;
+    case 16:
+      return RTLIB::SRA_I16;
+    case 24:
+      return RTLIB::SRA_I24;
+    case 32:
+      return RTLIB::SRA_I32;
+    case 64:
+      return RTLIB::SRA_I64;
+    case 128:
+      return RTLIB::SRA_I128;
+    default:
+      llvm_unreachable("Unsupported size");
+    }
+  case TargetOpcode::G_MUL:
+    switch (Size) {
+    case 8:
+      return RTLIB::MUL_I8;
+    case 16:
+      return RTLIB::MUL_I16;
+    case 24:
+      return RTLIB::MUL_I24;
+    case 32:
+      return RTLIB::MUL_I32;
+    case 64:
+      return RTLIB::MUL_I64;
+    case 128:
+      return RTLIB::MUL_I128;
+    default:
+      llvm_unreachable("Unsupported size");
+    }
   case TargetOpcode::G_SDIV:
     switch (Size) {
+    case 8:
+      return RTLIB::SDIV_I8;
+    case 16:
+      return RTLIB::SDIV_I16;
+    case 24:
+      return RTLIB::SDIV_I24;
     case 32:
       return RTLIB::SDIV_I32;
     case 64:
@@ -485,6 +577,12 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
     }
   case TargetOpcode::G_UDIV:
     switch (Size) {
+    case 8:
+      return RTLIB::UDIV_I8;
+    case 16:
+      return RTLIB::UDIV_I16;
+    case 24:
+      return RTLIB::UDIV_I24;
     case 32:
       return RTLIB::UDIV_I32;
     case 64:
@@ -495,11 +593,39 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
       llvm_unreachable("Unsupported size");
     }
   case TargetOpcode::G_SREM:
-    assert((Size == 32 || Size == 64) && "Unsupported size");
-    return Size == 64 ? RTLIB::SREM_I64 : RTLIB::SREM_I32;
+    switch (Size) {
+    case 8:
+      return RTLIB::SREM_I8;
+    case 16:
+      return RTLIB::SREM_I16;
+    case 24:
+      return RTLIB::SREM_I24;
+    case 32:
+      return RTLIB::SREM_I32;
+    case 64:
+      return RTLIB::SREM_I64;
+    case 128:
+      return RTLIB::SREM_I128;
+    default:
+      llvm_unreachable("Unsupported size");
+    }
   case TargetOpcode::G_UREM:
-    assert((Size == 32 || Size == 64) && "Unsupported size");
-    return Size == 64 ? RTLIB::UREM_I64 : RTLIB::UREM_I32;
+    switch (Size) {
+    case 8:
+      return RTLIB::UREM_I8;
+    case 16:
+      return RTLIB::UREM_I16;
+    case 24:
+      return RTLIB::UREM_I24;
+    case 32:
+      return RTLIB::UREM_I32;
+    case 64:
+      return RTLIB::UREM_I64;
+    case 128:
+      return RTLIB::UREM_I128;
+    default:
+      llvm_unreachable("Unsupported size");
+    }
   case TargetOpcode::G_CTLZ_ZERO_UNDEF:
     assert(Size == 32 && "Unsupported size");
     return RTLIB::CTLZ_I32;
@@ -515,6 +641,21 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
       return RTLIB::POPCNT_I32;
     case 64:
       return RTLIB::POPCNT_I64;
+    default:
+      llvm_unreachable("Unsupported size");
+    }
+  case TargetOpcode::G_BITREVERSE:
+    switch (Size) {
+    case 8:
+      return RTLIB::BITREV_I8;
+    case 16:
+      return RTLIB::BITREV_I16;
+    case 24:
+      return RTLIB::BITREV_I24;
+    case 32:
+      return RTLIB::BITREV_I32;
+    case 64:
+      return RTLIB::BITREV_I64;
     default:
       llvm_unreachable("Unsupported size");
     }
@@ -569,6 +710,13 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
   case TargetOpcode::G_FFLOOR:
     assert((Size == 32 || Size == 64) && "Unsupported size");
     return Size == 64 ? RTLIB::FLOOR_F64 : RTLIB::FLOOR_F32;
+  case TargetOpcode::G_FNEG:
+    assert((Size == 32 || Size == 64) && "Unsupported size");
+    return Size == 64 ? RTLIB::NEG_F64 : RTLIB::NEG_F32;
+  case TargetOpcode::G_FABS:
+    assert((Size == 32 || Size == 64 || Size == 128) && "Unsupported size");
+    return Size == 128 ? RTLIB::ABS_F128
+                       : Size == 64 ? RTLIB::ABS_F64 : RTLIB::ABS_F32;
   }
   llvm_unreachable("Unknown libcall function");
 }
@@ -743,14 +891,18 @@ LegalizerHelper::libcall(MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default:
     return UnableToLegalize;
+  case TargetOpcode::G_ADD:
+  case TargetOpcode::G_SUB:
   case TargetOpcode::G_AND:
   case TargetOpcode::G_OR:
   case TargetOpcode::G_XOR:
+  case TargetOpcode::G_MUL:
   case TargetOpcode::G_SDIV:
   case TargetOpcode::G_UDIV:
   case TargetOpcode::G_SREM:
   case TargetOpcode::G_UREM:
-  case TargetOpcode::G_CTLZ_ZERO_UNDEF: {
+  case TargetOpcode::G_CTLZ_ZERO_UNDEF:
+  case TargetOpcode::G_BITREVERSE: {
     Type *HLTy = IntegerType::get(Ctx, Size);
     auto Status = simpleLibcall(MI, MIRBuilder, Size, HLTy);
     if (Status != Legalized)
@@ -793,7 +945,9 @@ LegalizerHelper::libcall(MachineInstr &MI) {
   case TargetOpcode::G_FEXP:
   case TargetOpcode::G_FEXP2:
   case TargetOpcode::G_FCEIL:
-  case TargetOpcode::G_FFLOOR: {
+  case TargetOpcode::G_FFLOOR:
+  case TargetOpcode::G_FNEG:
+  case TargetOpcode::G_FABS: {
     Type *HLTy = getFloatTypeForLLT(Ctx, LLTy);
     if (!HLTy || (Size != 32 && Size != 64)) {
       LLVM_DEBUG(dbgs() << "No libcall available for size " << Size << ".\n");
@@ -946,9 +1100,13 @@ LegalizerHelper::LegalizeResult LegalizerHelper::narrowScalar(MachineInstr &MI,
   case TargetOpcode::G_ADD:
   case TargetOpcode::G_UADDO:
   case TargetOpcode::G_UADDE:
+  case TargetOpcode::G_SADDO:
+  case TargetOpcode::G_SADDE:
   case TargetOpcode::G_SUB:
   case TargetOpcode::G_USUBO:
   case TargetOpcode::G_USUBE:
+  case TargetOpcode::G_SSUBO:
+  case TargetOpcode::G_SSUBE:
     return narrowScalarExtended(MI, TypeIdx, NarrowTy);
   case TargetOpcode::G_MUL:
   case TargetOpcode::G_UMULH:
@@ -2190,11 +2348,12 @@ LegalizerHelper::lowerBitcast(MachineInstr &MI) {
 }
 
 LegalizerHelper::LegalizeResult
-LegalizerHelper::lower(MachineInstr &MI, unsigned TypeIdx, LLT Ty) {
+LegalizerHelper::lower(MachineInstr &MI, unsigned TypeIdx) {
   using namespace TargetOpcode;
   MIRBuilder.setInstr(MI);
+  LLT Ty = MRI.getType(MI.getOperand(0).getReg());
 
-  switch(MI.getOpcode()) {
+  switch (MI.getOpcode()) {
   default:
     return UnableToLegalize;
   case TargetOpcode::G_BITCAST:
@@ -2246,6 +2405,26 @@ LegalizerHelper::lower(MachineInstr &MI, unsigned TypeIdx, LLT Ty) {
     } else {
       MIRBuilder.buildICmp(CmpInst::ICMP_NE, Overflow, HiPart, Zero);
     }
+    return Legalized;
+  }
+  case TargetOpcode::G_SMULH:
+  case TargetOpcode::G_UMULH: {
+    Register ResReg = MI.getOperand(0).getReg();
+    Register LHSReg = MI.getOperand(1).getReg();
+    Register RHSReg = MI.getOperand(2).getReg();
+    LLT FullTy = LLT::scalar(Ty.getSizeInBits() * 2);
+
+    unsigned ExtOpc = MI.getOpcode() == TargetOpcode::G_SMULH
+                          ? TargetOpcode::G_SEXT
+                          : TargetOpcode::G_ZEXT;
+    auto ExtLHSI = MIRBuilder.buildInstr(ExtOpc, {FullTy}, {LHSReg});
+    auto ExtRHSI = MIRBuilder.buildInstr(ExtOpc, {FullTy}, {RHSReg});
+    auto MulI = MIRBuilder.buildMul(FullTy, ExtLHSI, ExtRHSI);
+    auto ShiftAmtI = MIRBuilder.buildConstant(FullTy, Ty.getSizeInBits());
+    auto ShiftI = MIRBuilder.buildLShr(FullTy, MulI, ShiftAmtI);
+    MIRBuilder.buildTrunc(ResReg, ShiftI);
+
+    MI.eraseFromParent();
     return Legalized;
   }
   case TargetOpcode::G_FNEG: {
@@ -3888,24 +4067,41 @@ LegalizerHelper::narrowScalarExtended(MachineInstr &MI, unsigned TypeIdx,
   if (TypeIdx != 0)
     return UnableToLegalize;
 
-  unsigned Opc = MI.getOpcode(), OverflowOpc, ExtendOpc;
+  unsigned Opc = MI.getOpcode(), OverflowOpc, ExtendOpc, FinalExtendOpc;
   Register DstReg, ExtendOutReg, Src1Reg, Src2Reg, ExtendInReg;
 
   switch (Opc) {
   case TargetOpcode::G_ADD:
   case TargetOpcode::G_UADDO:
   case TargetOpcode::G_UADDE:
+  case TargetOpcode::G_SADDO:
+  case TargetOpcode::G_SADDE:
     OverflowOpc = TargetOpcode::G_UADDO;
     ExtendOpc = TargetOpcode::G_UADDE;
     break;
   case TargetOpcode::G_SUB:
   case TargetOpcode::G_USUBO:
   case TargetOpcode::G_USUBE:
+  case TargetOpcode::G_SSUBO:
+  case TargetOpcode::G_SSUBE:
     OverflowOpc = TargetOpcode::G_USUBO;
     ExtendOpc = TargetOpcode::G_USUBE;
     break;
   default:
     llvm_unreachable("Unexpected opcode");
+  }
+  switch (Opc) {
+  case TargetOpcode::G_SADDO:
+  case TargetOpcode::G_SADDE:
+    FinalExtendOpc = TargetOpcode::G_SADDE;
+    break;
+  case TargetOpcode::G_SSUBO:
+  case TargetOpcode::G_SSUBE:
+    FinalExtendOpc = TargetOpcode::G_SSUBE;
+    break;
+  default:
+    FinalExtendOpc = ExtendOpc;
+    break;
   }
 
   {
@@ -3932,13 +4128,17 @@ LegalizerHelper::narrowScalarExtended(MachineInstr &MI, unsigned TypeIdx,
 
   unsigned NumParts = Src1Regs.size();
   unsigned TotalParts = NumParts + LeftoverTy.isValid();
+  assert(TotalParts > 1 && "Should be more that one part");
   for (unsigned I = 0; I != TotalParts; ++I) {
     bool Leftover = I == NumParts;
     LLT PartTy = Leftover ? LeftoverTy : NarrowTy;
     Register PartDstReg = MRI.createGenericVirtualRegister(PartTy);
     Register PartExtendOutReg;
-    if (I == TotalParts - 1)
+    if (I == TotalParts - 1) {
       PartExtendOutReg = ExtendOutReg;
+      // Restore original signedness for most significant opcode.
+      ExtendOpc = FinalExtendOpc;
+    }
     if (!PartExtendOutReg.isValid())
       PartExtendOutReg = MRI.createGenericVirtualRegister(LLT::scalar(1));
     Register PartSrc1Reg = Leftover ? Src1LeftoverReg : Src1Regs[I];
@@ -4266,8 +4466,10 @@ LegalizerHelper::lowerBitCount(MachineInstr &MI, unsigned TypeIdx, LLT Ty) {
       MI.eraseFromParent();
       return Legalized;
     }
+    Observer.changingInstr(MI);
     MI.setDesc(TII.get(TargetOpcode::G_CTPOP));
     MI.getOperand(1).setReg(MIBTmp.getReg(0));
+    Observer.changedInstr(MI);
     return Legalized;
   }
   case TargetOpcode::G_CTPOP: {
