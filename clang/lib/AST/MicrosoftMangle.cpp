@@ -2142,7 +2142,9 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::SatUShortFract:
   case BuiltinType::SatUFract:
   case BuiltinType::SatULongFract:
-  case BuiltinType::Float128: {
+  case BuiltinType::Float128:
+  case BuiltinType::Int48:
+  case BuiltinType::UInt48: {
     DiagnosticsEngine &Diags = Context.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "cannot mangle this built-in %0 type yet");
