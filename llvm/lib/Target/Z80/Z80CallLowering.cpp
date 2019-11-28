@@ -94,7 +94,36 @@ struct CallArgHandler : public OutgoingValueHandler {
 
   Register getStackAddress(uint64_t Size, int64_t Offset,
                            MachinePointerInfo &MPO) override {
+    MIRBuilder.setInsertPt(MIRBuilder.getMBB(), std::next(Before));
     return OutgoingValueHandler::getStackAddress(Size, Offset, MPO);
+  }
+
+  void assignValueToAddress(Register ValVReg, Register Addr, uint64_t Size,
+                            MachinePointerInfo &MPO, CCValAssign &VA) override {
+    if (MachineInstr *AddrMI = MRI.getVRegDef(Addr)) {
+      unsigned Size = STI.is24Bit() ? 3 : 2;
+      if (Size == VA.getLocVT().getStoreSize() &&
+          AddrMI->getOpcode() == TargetOpcode::G_PTR_ADD) {
+        if (MachineInstr *BaseMI =
+                MRI.getVRegDef(AddrMI->getOperand(1).getReg())) {
+          if (auto OffConst =
+                  getConstantVRegVal(AddrMI->getOperand(2).getReg(), MRI)) {
+            if (BaseMI->getOpcode() == TargetOpcode::COPY &&
+                BaseMI->getOperand(1).getReg() ==
+                    STI.getRegisterInfo()->getStackRegister() &&
+                *OffConst == SetupFrameAdjustment) {
+              MIRBuilder.setInsertPt(MIRBuilder.getMBB(), std::next(Before));
+              MIRBuilder.buildInstr(Size == 3 ? Z80::PUSH24r : Z80::PUSH16r, {},
+                                    {extendRegister(ValVReg, VA)});
+              SetupFrameAdjustment += Size;
+              return;
+            }
+          }
+        }
+      }
+    }
+    return OutgoingValueHandler::assignValueToAddress(ValVReg, Addr, Size, MPO,
+                                                      VA);
   }
 
   bool finalize(CCState &State) override {
@@ -358,10 +387,25 @@ bool Z80CallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   const Z80Subtarget &STI = MF.getSubtarget<Z80Subtarget>();
   const Z80InstrInfo &TII = *STI.getInstrInfo();
   const Z80FrameLowering &TFI = *STI.getFrameLowering();
-  auto TRI = STI.getRegisterInfo();
+  const Z80RegisterInfo &TRI = *STI.getRegisterInfo();
 
   unsigned AdjStackDown = TII.getCallFrameSetupOpcode();
   auto CallSeqStart = MIRBuilder.buildInstr(AdjStackDown);
+
+  // Look through bitcasts of the callee.
+  while (Info.Callee.isReg()) {
+    if (MachineInstr *MI = MRI.getVRegDef(Info.Callee.getReg())) {
+      switch (MI->getOpcode()) {
+      case TargetOpcode::COPY:
+      case TargetOpcode::G_GLOBAL_VALUE:
+      case TargetOpcode::G_INTTOPTR:
+      case TargetOpcode::G_CONSTANT:
+        Info.Callee = MI->getOperand(1);
+        continue;
+      }
+    }
+    break;
+  }
 
   // Create a temporarily-floating call instruction so we can add the implicit
   // uses of arg registers.
@@ -372,7 +416,7 @@ bool Z80CallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
 
   auto MIB = MIRBuilder.buildInstrNoInsert(CallOpc)
                  .add(Info.Callee)
-                 .addRegMask(TRI->getCallPreservedMask(MF, Info.CallConv));
+                 .addRegMask(TRI.getCallPreservedMask(MF, Info.CallConv));
 
   SmallVector<ArgInfo, 8> SplitArgs;
   for (const auto &OrigArg : Info.OrigArgs) {
@@ -388,7 +432,7 @@ bool Z80CallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
                          Handler))
     return false;
 
-  if (Info.CallAttributes.hasFnAttribute("tiflags")) {
+  if (Info.CallConv == CallingConv::Z80_TIFlags) {
     MVT VT = Is24Bit ? MVT::i24 : MVT::i16;
     Register FlagsReg =
         MIRBuilder.buildConstant(LLT(VT), STI.hasEZ80Ops() ? 0xD00080 : 0x89F0)
@@ -406,7 +450,7 @@ bool Z80CallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   // constraint of that instruction.
   if (Info.Callee.isReg())
     MIB->getOperand(0).setReg(constrainOperandRegClass(
-        MF, *TRI, MRI, *MF.getSubtarget().getInstrInfo(),
+        MF, TRI, MRI, *MF.getSubtarget().getInstrInfo(),
         *MF.getSubtarget().getRegBankInfo(), *MIB, MIB->getDesc(), Info.Callee,
         0));
 

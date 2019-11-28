@@ -843,12 +843,14 @@ def : Pat<(add R24:$imp,  1), (INC24r R24:$imp)>;
 def : Pat<(add R24:$imp, -1), (DEC24r R24:$imp)>;
 
 let Defs = [F] in {
-  def ADD16aa : I16<Idx0Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
-                    (outs A16:$dst), (ins A16:$imp),
-                    [(set A16:$dst, F, (Z80add_flag A16:$imp, A16:$imp))]>;
-  def ADD24aa : I24<Idx0Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
-                    (outs A24:$dst), (ins A24:$imp),
-                    [(set A24:$dst, F, (Z80add_flag A24:$imp, A24:$imp))]>;
+  let AddedComplexity = 1 in {
+    def ADD16aa : I16<Idx0Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
+                      (outs A16:$dst), (ins A16:$imp),
+                      [(set A16:$dst, F, (Z80add_flag A16:$imp, A16:$imp))]>;
+    def ADD24aa : I24<Idx0Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
+                      (outs A24:$dst), (ins A24:$imp),
+                      [(set A24:$dst, F, (Z80add_flag A24:$imp, A24:$imp))]>;
+  }
   def ADD16ao : I16<Idx0Pre, 0x09, "add", "\t$dst, $src", "$imp = $dst",
                     (outs A16:$dst), (ins A16:$imp, O16:$src),
                     [(set A16:$dst, F, (Z80add_flag A16:$imp, O16:$src))]>;
@@ -864,10 +866,12 @@ let Defs = [F] in {
                    (outs A24:$dst), (ins A24:$imp),
                    [(set A24:$dst, F, (Z80add_flag A24:$imp, SPL))]>;
 }
-def : Pat<(add  A16:$imp, A16:$imp), (ADD16aa A16:$imp)>;
-def : Pat<(add  A24:$imp, A24:$imp), (ADD24aa A24:$imp)>;
-def : Pat<(addc A16:$imp, A16:$imp), (ADD16aa A16:$imp)>;
-def : Pat<(addc A24:$imp, A24:$imp), (ADD24aa A24:$imp)>;
+let AddedComplexity = 1 in {
+  def : Pat<(add  A16:$imp, A16:$imp), (ADD16aa A16:$imp)>;
+  def : Pat<(add  A24:$imp, A24:$imp), (ADD24aa A24:$imp)>;
+  def : Pat<(addc A16:$imp, A16:$imp), (ADD16aa A16:$imp)>;
+  def : Pat<(addc A24:$imp, A24:$imp), (ADD24aa A24:$imp)>;
+}
 def : Pat<(add  A16:$imp, O16:$src), (ADD16ao A16:$imp, O16:$src)>;
 def : Pat<(add  A24:$imp, O24:$src), (ADD24ao A24:$imp, O24:$src)>;
 def : Pat<(addc A16:$imp, O16:$src), (ADD16ao A16:$imp, O16:$src)>;

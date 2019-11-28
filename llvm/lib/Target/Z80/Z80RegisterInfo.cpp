@@ -102,6 +102,8 @@ Z80RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   case CallingConv::Z80_LibCall_L:
   case CallingConv::Z80_LibCall_F:
     return Is24Bit ? CSR_EZ80_AllRegs_SaveList : CSR_Z80_AllRegs_SaveList;
+  case CallingConv::Z80_TIFlags:
+    return Is24Bit ? CSR_EZ80_TIFlags_SaveList : CSR_Z80_TIFlags_SaveList;
   }
 }
 
@@ -121,6 +123,8 @@ Z80RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
   case CallingConv::Z80_LibCall_L:
   case CallingConv::Z80_LibCall_F:
     return Is24Bit ? CSR_EZ80_AllRegs_RegMask : CSR_Z80_AllRegs_RegMask;
+  case CallingConv::Z80_TIFlags:
+    return Is24Bit ? CSR_EZ80_TIFlags_RegMask : CSR_Z80_TIFlags_RegMask;
   }
 }
 const uint32_t *Z80RegisterInfo::getNoPreservedMask() const {
@@ -202,7 +206,11 @@ void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   if (isFrameOffsetLegal(&MI, BasePtr, Offset) &&
       (Opc != Z80::LEA16ro || STI.hasEZ80Ops())) {
     MI.getOperand(FIOperandNum).ChangeToRegister(BasePtr, false);
-    MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
+    if (!Offset && (Opc == Z80::PEA24o || Opc == Z80::PEA16o)) {
+      MI.setDesc(TII.get(Opc == Z80::PEA24o ? Z80::PUSH24r : Z80::PUSH16r));
+      MI.RemoveOperand(FIOperandNum + 1);
+    } else
+      MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
     return;
   }
   unsigned OffsetReg = RS->scavengeRegister(

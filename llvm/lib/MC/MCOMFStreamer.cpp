@@ -18,17 +18,17 @@
 
 using namespace llvm;
 
-bool MCOMFStreamer::EmitSymbolAttribute(MCSymbol *Symbol,
+bool MCOMFStreamer::emitSymbolAttribute(MCSymbol *Symbol,
                                         MCSymbolAttr Attribute) {
   llvm_unreachable("Unimplemented!");
 }
 
-void MCOMFStreamer::EmitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
+void MCOMFStreamer::emitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
                                      unsigned ByteAlignment) {
   llvm_unreachable("Unimplemented!");
 }
 
-void MCOMFStreamer::EmitZerofill(MCSection *Section, MCSymbol *Symbol,
+void MCOMFStreamer::emitZerofill(MCSection *Section, MCSymbol *Symbol,
                                  uint64_t Size, unsigned ByteAlignment,
                                  SMLoc Loc) {
   llvm_unreachable("Unimplemented!");

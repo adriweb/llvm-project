@@ -126,8 +126,14 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(1, s8, s8)
       .clampScalar(0, s8, s64);
 
-  getActionDefinitionsBuilder({G_FADD, G_FSUB, G_FMUL, G_FDIV, G_FREM, G_FNEG, G_FABS})
+  getActionDefinitionsBuilder({G_FADD, G_FSUB, G_FMUL, G_FDIV, G_FREM, G_FNEG, G_FABS, G_FCEIL, G_FCOS, G_FSIN, G_FSQRT, G_FFLOOR, G_FRINT, G_FNEARBYINT})
       .libcallFor({s32, s64});
+
+  getActionDefinitionsBuilder(G_FCOPYSIGN)
+      .libcallFor({{s32, s32}, {s64, s64}});
+
+  //getActionDefinitionsBuilder({G_FNEG, G_FABS)
+  //    .customFor({s32, s64});
 
   getActionDefinitionsBuilder(G_FPTRUNC)
       .libcallFor({{s32, s64}});

@@ -143,6 +143,54 @@ def mul_to_shl : GICombineRule<
   (apply [{ Helper.applyCombineMulToShl(*${mi}, ${matchinfo}); }])>;
 
 def trivial_combines : GICombineGroup<[copy_prop, mul_to_shl]>;
+
+def ptr_add_global_matchdata : GIDefMatchData<"PtrAddGlobal">;
+def ptr_add_global_immed : GICombineRule<
+  (defs root:$mi, ptr_add_global_matchdata:$matchinfo),
+  (match (wip_match_opcode G_PTR_ADD):$mi,
+         [{ return Helper.matchPtrAddGlobalImmed(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyPtrAddGlobalImmed(*${mi}, ${matchinfo}); }])>;
+
+def ptr_add_const_matchdata : GIDefMatchData<"PtrAddConst">;
+def ptr_add_const_immed : GICombineRule<
+  (defs root:$mi, ptr_add_const_matchdata:$matchinfo),
+  (match (wip_match_opcode G_PTR_ADD):$mi,
+         [{ return Helper.matchPtrAddConstImmed(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyPtrAddConstImmed(*${mi}, ${matchinfo}); }])>;
+
+def shl_to_add_matchdata : GIDefMatchData<"unsigned">;
+def shl_to_add : GICombineRule<
+  (defs root:$mi, shl_to_add_matchdata:$matchinfo),
+  (match (wip_match_opcode G_SHL):$mi,
+         [{ return Helper.matchCombineShlToAdd(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyCombineShlToAdd(*${mi}, ${matchinfo}); }])>;
+
+def or_to_add : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_OR):$mi,
+         [{ return Helper.matchConvertOrToAdd(*${mi}); }]),
+  (apply [{ Helper.applyConvertOrToAdd(*${mi}); }])>;
+
+def combine_identity : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_ADD, G_SUB, G_MUL, G_SDIV, G_UDIV,
+                           G_AND, G_OR, G_XOR, G_SHL, G_LSHR, G_ASHR,
+                           G_PTR_ADD, G_PTR_MASK):$mi,
+         [{ return Helper.matchCombineIdentity(*${mi}); }]),
+  (apply [{ Helper.applyCombineIdentity(*${mi}); }])>;
+
+def split_conditions : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_BRCOND):$mi,
+         [{ return Helper.matchSplitConditions(*${mi}); }]),
+  (apply [{ Helper.applySplitConditions(*${mi}); }])>;
+
+def lower_is_power_of_two : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_ICMP):$mi,
+         [{ return Helper.matchLowerIsPowerOfTwo(*${mi}); }]),
+  (apply [{ Helper.applyLowerIsPowerOfTwo(*${mi}); }])>;
+
 def all_combines : GICombineGroup<[trivial_combines, ptr_add_immed_chain,
     combines_for_extload, combine_indexed_load_store]>;
 

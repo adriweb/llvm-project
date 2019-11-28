@@ -9890,7 +9890,7 @@ void Z80TargetCodeGenInfo::setTargetAttributes(
 
   if (Fn->isDeclaration()) {
     if (FD->getAttr<AnyZ80TIFlagsAttr>())
-      Fn->addFnAttr("tiflags");
+      Fn->setCallingConv(llvm::CallingConv::Z80_TIFlags);
     return;
   }
 

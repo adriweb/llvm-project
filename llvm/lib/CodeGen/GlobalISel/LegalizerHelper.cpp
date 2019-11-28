@@ -710,6 +710,10 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
   case TargetOpcode::G_FFLOOR:
     assert((Size == 32 || Size == 64) && "Unsupported size");
     return Size == 64 ? RTLIB::FLOOR_F64 : RTLIB::FLOOR_F32;
+  case TargetOpcode::G_FCOPYSIGN:
+    assert((Size == 32 || Size == 64 || Size == 128) && "Unsupported size");
+    return Size == 128 ? RTLIB::COPYSIGN_F128
+                       : Size == 64 ? RTLIB::COPYSIGN_F64 : RTLIB::COPYSIGN_F32;
   case TargetOpcode::G_FNEG:
     assert((Size == 32 || Size == 64) && "Unsupported size");
     return Size == 64 ? RTLIB::NEG_F64 : RTLIB::NEG_F32;
@@ -946,6 +950,7 @@ LegalizerHelper::libcall(MachineInstr &MI) {
   case TargetOpcode::G_FEXP2:
   case TargetOpcode::G_FCEIL:
   case TargetOpcode::G_FFLOOR:
+  case TargetOpcode::G_FCOPYSIGN:
   case TargetOpcode::G_FNEG:
   case TargetOpcode::G_FABS: {
     Type *HLTy = getFloatTypeForLLT(Ctx, LLTy);

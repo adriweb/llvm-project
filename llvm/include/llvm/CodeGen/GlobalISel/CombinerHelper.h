@@ -24,12 +24,14 @@
 namespace llvm {
 
 class GISelChangeObserver;
+class GISelKnownBits;
+class GlobalValue;
+class MachineBasicBlock;
+class MachineDominatorTree;
 class MachineIRBuilder;
-class MachineRegisterInfo;
 class MachineInstr;
 class MachineOperand;
-class GISelKnownBits;
-class MachineDominatorTree;
+class MachineRegisterInfo;
 
 struct PreferredTuple {
   LLT Ty;                // The result type of the extend.
@@ -46,7 +48,17 @@ struct IndexedLoadStoreMatchInfo {
 
 struct PtrAddChain {
   int64_t Imm;
-  Register Base;
+  Register Reg;
+};
+
+struct PtrAddGlobal {
+  int64_t Imm;
+  const GlobalValue *Global;
+};
+
+struct PtrAddConst {
+  int64_t Imm;
+  LLT Ty;
 };
 
 class CombinerHelper {
@@ -87,6 +99,19 @@ public:
   /// construction, this function returns a conservative result that tracks just
   /// a single basic block.
   bool dominates(MachineInstr &DefMI, MachineInstr &UseMI);
+
+  /// Returns true if \p DefMBB dominates \p UseMBB. By definition a block
+  /// dominates itself.
+  ///
+  /// If we haven't been provided with a MachineDominatorTree during
+  /// construction, this function returns a conservative result that just checks
+  /// for equality.
+  bool dominates(MachineBasicBlock &DefMBB, MachineBasicBlock &UseMBB);
+
+  /// Checks if MI can be moved to the beginning of MBB.
+  ///
+  /// \returns true if the instruction can be moved.
+  bool canMove(MachineInstr &MI, MachineBasicBlock &MBB, bool &SawStore);
 
   /// If \p MI is extend that consumes the result of a load, try to combine it.
   /// Returns true if MI changed.
@@ -189,6 +214,29 @@ public:
                                  unsigned &ShiftVal);
   bool applyCombineShiftToUnmerge(MachineInstr &MI, const unsigned &ShiftVal);
   bool tryCombineShiftToUnmerge(MachineInstr &MI, unsigned TargetShiftAmount);
+
+  bool matchPtrAddGlobalImmed(MachineInstr &MI, PtrAddGlobal &MatchInfo);
+  bool applyPtrAddGlobalImmed(MachineInstr &MI, PtrAddGlobal &MatchInfo);
+
+  bool matchPtrAddConstImmed(MachineInstr &MI, PtrAddConst &MatchInfo);
+  bool applyPtrAddConstImmed(MachineInstr &MI, PtrAddConst &MatchInfo);
+
+  bool matchCombineShlToAdd(MachineInstr &MI, unsigned &ShiftVal);
+  bool applyCombineShlToAdd(MachineInstr &MI, unsigned &ShiftVal);
+
+  bool matchConvertOrToAdd(MachineInstr &MI);
+  bool applyConvertOrToAdd(MachineInstr &MI);
+
+  bool matchCombineIdentity(MachineInstr &MI);
+  bool applyCombineIdentity(MachineInstr &MI);
+
+  /// Split branches on conditions combined with and/or into multiple branches.
+  bool matchSplitConditions(MachineInstr &MI);
+  void applySplitConditions(MachineInstr &MI);
+
+  /// Undo combines involving popcnt.
+  bool matchLowerIsPowerOfTwo(MachineInstr &MI);
+  void applyLowerIsPowerOfTwo(MachineInstr &MI);
 
   /// Try to transform \p MI by using all of the above
   /// combine functions. Returns true if changed.

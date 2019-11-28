@@ -1946,7 +1946,7 @@ void CodeGenModule::ConstructAttributeList(
     if (TargetDecl->hasAttr<AnyX86NoCfCheckAttr>())
       FuncAttrs.addAttribute(llvm::Attribute::NoCfCheck);
     if (TargetDecl->hasAttr<AnyZ80TIFlagsAttr>())
-      FuncAttrs.addAttribute("tiflags");
+      CallingConv = llvm::CallingConv::Z80_TIFlags;
 
     HasOptnone = TargetDecl->hasAttr<OptimizeNoneAttr>();
     if (auto *AllocSize = TargetDecl->getAttr<AllocSizeAttr>()) {

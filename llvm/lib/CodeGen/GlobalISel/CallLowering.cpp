@@ -411,7 +411,7 @@ bool CallLowering::handleAssignments(CCState &CCInfo,
               .addImm(/*isTailCall=*/0)
               .addMemOperand(
                   MF.getMachineMemOperand(MPO, MachineMemOperand::MOStore, Size,
-                                          OrigFlags.getByValAlign()))
+                                          OrigFlags.getNonZeroByValAlign().value()))
               .addMemOperand(MF.getMachineMemOperand(
                   MachinePointerInfo(ArgVal), MachineMemOperand::MOLoad, Size,
                   ArgAlign.valueOrOne().value()));
