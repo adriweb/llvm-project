@@ -187,6 +187,10 @@ protected:
   /// used to emit these bytes. Defaults to true.
   bool ZeroDirectiveSupportsNonZeroValue = true;
 
+  /// This should be set to the separator used in block directives between
+  /// the number of bytes and the fill value.  Defaults to ", ".
+  const char *BlockSeparator;
+
   /// This directive allows emission of an ascii string with the standard C
   /// escape characters embedded into it.  If a target doesn't support this, it
   /// can be set to null. Defaults to "\t.ascii\t"
@@ -225,6 +229,8 @@ protected:
   const char *TPRel32Directive = nullptr;
   const char *TPRel64Directive = nullptr;
 
+  bool AlwaysChangeSection = false;
+
   /// This is true if this target uses "Sun Style" syntax for section switching
   /// ("#alloc,#write" etc) instead of the normal ELF syntax (,"a,w") in
   /// .section directives.  Defaults to false.
@@ -254,6 +260,15 @@ protected:
   /// This is the directive used to declare a global entity. Defaults to
   /// ".globl".
   const char *GlobalDirective;
+
+  /// This is the directive used to declare a local entity. Defaults to
+  /// nothing.
+  const char *LGloblDirective = nullptr;
+
+  /// This is the directive used to assign a symbol. Defaults to ".set " and
+  /// ", ".
+  const char *SetDirective;
+  const char *SetSeparator;
 
   /// True if the expression
   ///   .long f - g
@@ -327,10 +342,6 @@ protected:
   /// True if we have a .linkonce directive.  This is used on cygwin/mingw.
   /// Defaults to false.
   bool HasLinkOnceDirective = false;
-
-  /// True if we have a .lglobl directive, which is used to emit the information
-  /// of a static symbol into the symbol table. Defaults to false.
-  bool HasDotLGloblDirective = false;
 
   /// This attribute, if not MCSA_Invalid, is used to declare a symbol as having
   /// hidden visibility.  Defaults to MCSA_Hidden.
@@ -485,6 +496,7 @@ public:
   /// returns false => .section .text,#alloc,#execinstr
   /// returns true  => .text
   virtual bool shouldOmitSectionDirective(StringRef SectionName) const;
+  bool shouldAlwaysChangeSection() const { return AlwaysChangeSection; }
 
   bool usesSunStyleELFSectionSwitchSyntax() const {
     return SunStyleELFSectionSwitchSyntax;
@@ -561,12 +573,16 @@ public:
     return ZeroDirectiveSupportsNonZeroValue;
   }
   virtual const char *getBlockDirective(int64_t Size) const { return nullptr; }
+  const char *getBlockSeparator() const { return BlockSeparator; }
   const char *getAsciiDirective() const { return AsciiDirective; }
   const char *getAscizDirective() const { return AscizDirective; }
   bool getAlignmentIsInBytes() const { return AlignmentIsInBytes; }
   unsigned getTextAlignFillValue() const { return TextAlignFillValue; }
 
   const char *getGlobalDirective() const { return GlobalDirective; }
+  const char *getLGloblDirective() const { return LGloblDirective; }
+  const char *getSetDirective() const { return SetDirective; }
+  const char *getSetSeparator() const { return SetSeparator; }
 
   bool doesSetDirectiveSuppressReloc() const {
     return SetDirectiveSuppressesReloc;
@@ -597,8 +613,6 @@ public:
   }
 
   bool hasLinkOnceDirective() const { return HasLinkOnceDirective; }
-
-  bool hasDotLGloblDirective() const { return HasDotLGloblDirective; }
 
   MCSymbolAttr getHiddenVisibilityAttr() const { return HiddenVisibilityAttr; }
 
