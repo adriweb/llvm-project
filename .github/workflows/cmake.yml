@@ -431,3 +431,67 @@ jobs:
 
       - name: Test Clang
         run: build/bin/llvm-lit${{env.PY}} -v src/clang/test
+   
+  nightly:
+    runs-on: ubuntu-latest
+    needs: [build-clang, test-llvm-z80]
+    if: github.ref == 'refs/heads/z80'
+
+    steps:
+      - name: Download Ubuntu 20.04 ez80-clang
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-clang-ubuntu-20.04Release
+          path: ${{github.workspace}}
+      - name: Download Ubuntu 20.04 ez80-link
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-link-ubuntu-20.04Release
+          path: ${{github.workspace}}
+      - name: chmod and zip Ubuntu Artifacts
+        run: |
+          chmod +x ez80-clang ez80-link
+          zip ez80-clang-link_ubuntu_nightly.zip ez80-clang ez80-link
+          rm ez80-clang ez80-link
+
+      - name: Download macOS 11 ez80-clang
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-clang-macos-11Release
+          path: ${{github.workspace}}
+      - name: Download macOS 11 ez80-link
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-link-macos-11Release
+          path: ${{github.workspace}}
+      - name: chmod and zip macOS Artifacts
+        run: |
+          chmod +x ez80-clang ez80-link
+          zip ez80-clang-link_macOS_nightly.zip ez80-clang ez80-link
+          rm ez80-clang ez80-link
+
+      - name: Download Windows 20.04 ez80-clang
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-clang.exe-windows-latestRelease
+          path: ${{github.workspace}}
+      - name: Download Windows ez80-link
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-link.exe-windows-latestRelease
+          path: ${{github.workspace}}
+      - name: zip Windows Artifacts
+        run: |
+          zip ez80-clang-link_windows_nightly.zip ez80-clang.exe ez80-link.exe
+          rm ez80-clang.exe ez80-link.exe
+
+      - name: Update nightly release
+        uses: pyTooling/Actions/releaser@main
+        with:
+          tag: nightly
+          rm: true
+          token: ${{secrets.GITHUB_TOKEN}}
+          files: |
+            ez80-clang-link_ubuntu_nightly.zip
+            ez80-clang-link_macOS_nightly.zip
+            ez80-clang-link_windows_nightly.zip
